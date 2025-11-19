@@ -102,12 +102,13 @@ function Get-NextBranchNumber {
         # Ignore errors
     }
     
-    # Check specs directory
+    # Check specs directory (check ALL specs to avoid numbering conflicts)
     $specDirs = @()
     if (Test-Path $SpecsDir) {
         try {
-            $specDirs = Get-ChildItem -Path $SpecsDir -Directory | Where-Object { $_.Name -match "^(\d+)-$([regex]::Escape($ShortName))$" } | ForEach-Object {
+            $specDirs = Get-ChildItem -Path $SpecsDir -Directory | Where-Object { $_.Name -match "^(\d+)-" } | ForEach-Object {
                 if ($_.Name -match "^(\d+)-") {
+                    # Convert to int to handle leading zeros (01, 001, 010)
                     [int]$matches[1]
                 }
             }
@@ -115,15 +116,16 @@ function Get-NextBranchNumber {
             # Ignore errors
         }
     }
-    
+
     # Combine all sources and get the highest number
+    # PowerShell automatically handles integer comparison correctly
     $maxNum = 0
     foreach ($num in ($remoteBranches + $localBranches + $specDirs)) {
         if ($num -gt $maxNum) {
             $maxNum = $num
         }
     }
-    
+
     # Return next number
     return $maxNum + 1
 }
@@ -133,12 +135,24 @@ if (-not $fallbackRoot) {
     exit 1
 }
 
+# Source common.ps1 for worktree support
+$commonScript = Join-Path $PSScriptRoot "common.ps1"
+if (Test-Path $commonScript) {
+    . $commonScript
+}
+
 try {
-    $repoRoot = git rev-parse --show-toplevel 2>$null
-    if ($LASTEXITCODE -eq 0) {
+    # Use Get-RepoRoot if available (supports worktrees), otherwise fallback
+    if (Get-Command Get-RepoRoot -ErrorAction SilentlyContinue) {
+        $repoRoot = Get-RepoRoot
         $hasGit = $true
     } else {
-        throw "Git not available"
+        $repoRoot = git rev-parse --show-toplevel 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            $hasGit = $true
+        } else {
+            throw "Git not available"
+        }
     }
 } catch {
     $repoRoot = $fallbackRoot
