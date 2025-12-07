@@ -1,0 +1,15 @@
+node_modules/
+.DS_Store
+.env
+.env.local
+build/
+.docusaurus/
+rag/store.json
+rag/chunks.json
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dist/
+coverage/
+.cache/
